@@ -16,8 +16,6 @@ hidden pin manipulation.*/
 
 #include "Arduino.h"
 
-//#define ENABLE_DEBUG  //  uncomment this to enable Serial output (commented to save program space on Arduino Nano)
-
 class S_PWM
 {
   public:

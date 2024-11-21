@@ -11,9 +11,10 @@ S_PWM::S_PWM(uint8_t pin, uint16_t period){
   if(_periodTime > MIN_PERIOD_TIME){
     _periodTime = period;
   }
-  else
+  else{
     _periodTime = MIN_PERIOD_TIME;
     _thowConstructorValueWarn = 1;
+  }
 }
 
 void S_PWM::begin(){
@@ -54,7 +55,7 @@ void S_PWM::setDuty(uint8_t dutyPercent){
         #ifdef ENABLE_DEBUG
         Serial.print("Error in function setDuty() - calculated on time value: ");
         Serial.print(_onTime);
-        Serial.print("out of bounds, line: ");
+        Serial.print(" out of bounds, line: ");
         Serial.print(__LINE__);
         Serial.print("\n");
         #endif
@@ -64,9 +65,9 @@ void S_PWM::setDuty(uint8_t dutyPercent){
     else{
       doonce = 1; //  reset the flag so we can show a value of of bounds if it happens again
       #ifdef ENABLE_DEBUG
-      Serial.print("Calculated ON time: ");
-      Serial.print(_onTime);
-      Serial.print("\n");
+        Serial.print("Calculated ON time: ");
+        Serial.print(_onTime);
+        Serial.print("\n");
       #endif
     }
 
@@ -76,11 +77,11 @@ void S_PWM::setDuty(uint8_t dutyPercent){
         doonce2 = 0; //  reset flag
         /*Print warning on Serial, use non formatting functions - Arduino go brrrt*/
         #ifdef ENABLE_DEBUG
-        Serial.print("Error in function setDuty() - calculated off time value: ");
-        Serial.print(_offTime);
-        Serial.print("out of bounds, line: ");
-        Serial.print(__LINE__);
-        Serial.print("\n");
+          Serial.print("Error in function setDuty() - calculated off time value: ");
+          Serial.print(_offTime);
+          Serial.print(" out of bounds, line: ");
+          Serial.print(__LINE__);
+          Serial.print("\n");
         #endif
       }
       _offTime = MIN_OFF_TIME; //  set the duty cycle to 20
@@ -104,23 +105,57 @@ void S_PWM::setDuty(uint8_t dutyPercent){
 }
 
 void S_PWM::pwmLoop(){
+  static bool isOn = 0; //  flag to track if the pin register has been written to, prevents rapidly writing to registers
+  static bool isOff = 0; //  flag to track if the pin register has been written to, prevents rapidly writing to registers
   /*If bitwise or between onTime and offTime results in 0 ->
   both values are zero and setDuty() has not been called yet,
   thus we don't do anything to the pins*/
   if(_onTime | _offTime){
-    /*If the required time for the pin to be on has passed
-    and the pin was on, toggle pin to low*/
-    if(((millis() - _elapOnTime) >= _onTime) && _state){
-      _state = 0;                 //  set state to false
-      digitalWrite(_pin, _state); //  set pin to false
-      _elapOffTime = millis();       //  reset time tracker
+    /*If pin should be off for less than the minimum tolerance, turn it on fully
+    WARNING: reverse logic. Print ON time, but decide based on OFF time*/
+    if(_offTime <= ((uint16_t)_periodTime*(TIME_TOLERANCE_FULL_VAL*0.01))){
+      if(!isOn){
+        #ifdef ENABLE_DEBUG
+          Serial.print("Pin should be on. ON time in pwmLoop(): ");
+          Serial.print(_onTime);
+          Serial.print("\n");
+        #endif
+        isOn = 1;               //  set flag
+        isOff = 0;              //  reset flag
+        digitalWrite(_pin, 1);  //  set pin
+        _elapOnTime = millis(); //  start counting how long the pin has been off
+      }
     }
-    /*If the required time for the pin to be off has passed
-    and the pin was off, toggle pin to high*/
-    if(((millis() - _elapOffTime) >= _offTime) && !_state){
-      _state = 1;                 //  set state to true
-      digitalWrite(_pin, _state); //  set pin to true
-      _elapOnTime = millis();       //  reset time tracker
+    else if(_onTime <= ((uint16_t)_periodTime*(TIME_TOLERANCE_FULL_VAL*0.01))){
+      if(!isOff){
+        #ifdef ENABLE_DEBUG
+          Serial.print("Pin should be off. OFF time in pwmLoop(): ");
+          Serial.print(_offTime);
+          Serial.print("\n");
+        #endif
+        isOff = 1;                //  set flag
+        isOn = 0;                 //  reset flag
+        digitalWrite(_pin, 0);    //  turn off pin
+        _elapOffTime = millis();  //  start counting how long the pin has been off
+      }
+    }
+    else{
+      isOn = 0;  //  reset the flag
+      isOff = 0;  //  reset the flag
+      /*If the required time for the pin to be on has passed
+      and the pin was on, toggle pin to low*/
+      if(((millis() - _elapOnTime) >= _onTime) && _state){
+        _state = 0;                     //  set state to false
+        digitalWrite(_pin, _state);     //  set pin to false
+        _elapOffTime = millis();        //  reset time tracker
+      }
+      /*If the required time for the pin to be off has passed
+      and the pin was off, toggle pin to high*/
+      if(((millis() - _elapOffTime) >= _offTime) && !_state){
+        _state = 1;                     //  set state to true
+        digitalWrite(_pin, _state);     //  set pin to true
+        _elapOnTime = millis();         //  reset time tracker
+      }
     }
   }
 }
