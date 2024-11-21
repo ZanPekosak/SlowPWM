@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "SlowPWM.h"
+#include "SlowPWM_Config.h"
 
 //init function -> sets registers, pins and initial state
 S_PWM::S_PWM(uint8_t pin, uint16_t period){
@@ -7,11 +8,11 @@ S_PWM::S_PWM(uint8_t pin, uint16_t period){
   _pin = pin; //  set pin number from constructor
   /*If period time which was intput is less
   than 100ms, set it to 100 and */
-  if(_periodTime > 100){
+  if(_periodTime > MIN_PERIOD_TIME){
     _periodTime = period;
   }
   else
-    _periodTime = 100;
+    _periodTime = MIN_PERIOD_TIME;
     _thowConstructorValueWarn = 1;
 }
 
@@ -44,9 +45,9 @@ void S_PWM::setDuty(uint8_t dutyPercent){
   static bool doonce2 = 1; //  create flag to track if the waring is issued once
 
   /*If dutyPercent is between 0-1, than calculate and set the values*/
-  if(dutyPercent >= 0 && dutyPercent <= 100){
+  if(dutyPercent >= MIN_DUTY && dutyPercent <= MAX_DUTY){
     _onTime = ((float)dutyPercent/100)*_periodTime; //  calculate on time
-    if(_onTime < 20){ //  check if duty time is less than 20ms and prevent it from being less. Thow warning on serial
+    if(_onTime < MIN_ON_TIME){ //  check if duty time is less than 20ms and prevent it from being less. Thow warning on serial
       if(doonce){
         doonce = 0; //  reset flag
         /*Print warning on Serial, use non formatting functions*/
@@ -58,7 +59,7 @@ void S_PWM::setDuty(uint8_t dutyPercent){
         Serial.print("\n");
         #endif
       }
-      _onTime = 20; //  set the duty cycle to 20
+      _onTime = MIN_ON_TIME; //  set the on cycle time to the specified minimum on time
     }
     else{
       doonce = 1; //  reset the flag so we can show a value of of bounds if it happens again
@@ -70,7 +71,7 @@ void S_PWM::setDuty(uint8_t dutyPercent){
     }
 
     _offTime = (uint16_t)(_periodTime - _onTime); //  calculate off time
-    if(_offTime < 20){ //  check if duty time is less than 20ms and prevent it from being less. Thow warning on serial
+    if(_offTime < MIN_OFF_TIME){ //  check if duty time is less than 20ms and prevent it from being less. Thow warning on serial
       if(doonce2){
         doonce2 = 0; //  reset flag
         /*Print warning on Serial, use non formatting functions - Arduino go brrrt*/
@@ -82,7 +83,7 @@ void S_PWM::setDuty(uint8_t dutyPercent){
         Serial.print("\n");
         #endif
       }
-      _offTime = 20; //  set the duty cycle to 20
+      _offTime = MIN_OFF_TIME; //  set the duty cycle to 20
     }
     else{
       doonce2 = 1;  //  reset the flag to get next warning
